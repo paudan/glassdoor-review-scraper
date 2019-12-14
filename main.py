@@ -152,56 +152,53 @@ def scrape(field, review, author):
         return review.find_element_by_class_name('summary').text.strip('"')
 
     def scrape_years(review):
-        first_par = review.find_element_by_class_name(
-            'reviewBodyCell').find_element_by_tag_name('p')
-        if '(' in first_par.text:
-            res = first_par.text[first_par.text.find('(') + 1:-1]
-        else:
+        try:
+            first_par = review.find_element_by_class_name('mainText')
+            res = first_par.text if first_par else np.nan
+        except Exception as e:
             res = np.nan
+            print(e.__str__())
         return res
 
     def scrape_helpful(review):
         try:
             helpful = review.find_element_by_class_name('helpfulCount')
             res = helpful[helpful.find('(') + 1: -1]
-        except Exception:
+        except:
             res = 0
         return res
 
     def expand_show_more(section):
         try:
-            more_content = section.find_element_by_class_name('moreContent')
-            more_link = more_content.find_element_by_class_name('moreLink')
-            more_link.click()
-        except Exception:
+            more_link = section.find_element_by_class_name('link')
+            if more_link is not None and more_link.text == 'Show More':
+                browser.execute_script('arguments[0].click();', more_link)
+        except:
             pass
+        
+    def scrape_comment(review, ind):
+        try:
+            pros = review.find_elements_by_class_name('mt-md')
+            if len(pros) < 1:
+                return np.nan
+            pros = pros[ind]
+            expand_show_more(pros)
+            p_pros = pros.find_elements_by_tag_name('p')           
+            if len(p_pros) < 1:
+                return np.nan
+            res = ' '.join([e.text.replace('\nShow Less', '').replace('\n', '').strip() for e in p_pros[1:]])
+        except Exception:
+            res = np.nan
+        return res        
 
     def scrape_pros(review):
-        try:
-            pros = review.find_element_by_class_name('pros')
-            expand_show_more(pros)
-            res = pros.text.replace('\nShow Less', '')
-        except Exception:
-            res = np.nan
-        return res
+        return scrape_comment(review, 0)
 
     def scrape_cons(review):
-        try:
-            cons = review.find_element_by_class_name('cons')
-            expand_show_more(cons)
-            res = cons.text.replace('\nShow Less', '')
-        except Exception:
-            res = np.nan
-        return res
+        return scrape_comment(review, 1)
 
     def scrape_advice(review):
-        try:
-            advice = review.find_element_by_class_name('adviceMgmt')
-            expand_show_more(advice)
-            res = advice.text.replace('\nShow Less', '')
-        except Exception:
-            res = np.nan
-        return res
+        return scrape_comment(review, 2)
 
     def scrape_overall_rating(review):
         try:
@@ -311,8 +308,8 @@ def extract_from_page():
 
 
 def more_pages():
-    paging_control = browser.find_element_by_class_name('pagingControls')
-    next_ = paging_control.find_element_by_class_name('next')
+    paging_control = browser.find_element_by_class_name('pagination__PaginationStyle__pagination')
+    next_ = paging_control.find_element_by_class_name('pagination__PaginationStyle__next')
     try:
         next_.find_element_by_tag_name('a')
         return True
@@ -322,9 +319,9 @@ def more_pages():
 
 def go_to_next_page():
     logger.info(f'Going to page {page[0] + 1}')
-    paging_control = browser.find_element_by_class_name('pagingControls')
+    paging_control = browser.find_element_by_class_name('pagination__PaginationStyle__pagination')
     next_ = paging_control.find_element_by_class_name(
-        'next').find_element_by_tag_name('a')
+        'pagination__PaginationStyle__next').find_element_by_tag_name('a')
     browser.get(next_.get_attribute('href'))
     time.sleep(1)
     page[0] = page[0] + 1
