@@ -20,6 +20,7 @@ usage: main.py [-h] [-u URL] [-f FILE] [--headless] [--username USERNAME]
 optional arguments:
   -h, --help                                  show this help message and exit
   -u URL, --url URL                           URL of the company's Glassdoor landing page.
+  -m FILE, --multiple-url FILE               File with multiple URLs of companies Glassdoor landing pages.
   -f FILE, --file FILE                        Output file.
   --headless                                  Run Chrome in headless mode.
   --username USERNAME                         Email address used to sign in to GD.
@@ -27,17 +28,17 @@ optional arguments:
   -c CREDENTIALS, --credentials CREDENTIALS   Credentials file
   -l LIMIT, --limit LIMIT                     Max reviews to scrape
   --start_from_url                            Start scraping from the passed URL.
-  
+
   --max_date MAX_DATE                         Latest review date to scrape. Only use this option
                                               with --start_from_url. You also must have sorted
                                               Glassdoor reviews ASCENDING by date.
-                                              
+
   --min_date MIN_DATE                         Earliest review date to scrape. Only use this option
                                               with --start_from_url. You also must have sorted
                                               Glassdoor reviews DESCENDING by date.
 ```
 
-Run the script as follows, taking Wells Fargo as an example. You can pass `--headless` to prevent the Chrome window from being visible, and the `--limit` option will limit how many reviews get scraped. The`-f` option specifies the output file, which defaults to `glassdoor_reviews.csv`.  
+Run the script as follows, taking Wells Fargo as an example. You can pass `--headless` to prevent the Chrome window from being visible, and the `--limit` option will limit how many reviews get scraped. The`-f` option specifies the output file, which defaults to `glassdoor_reviews.csv`.
 
 ### Example 1
 Suppose you want to get the top 1,000 most popular reviews for Wells Fargo. Run the command as follows:
@@ -54,6 +55,13 @@ Suppose you want to scrape all reviews from McDonald's that were posted in 2010:
 1. Navigate to McDonald's Glassdoor page and sort reviews ascending by date.
 2. Find the first page with a review from 2010, which happens to be [page 13](https://www.glassdoor.com/Reviews/McDonald-s-Reviews-E432_P13.htm?sort.sortType=RD&sort.ascending=true).
 3. Send the command to the script:
+
 `python main.py --headless --start_from_url --limit 9999 --max_date 2010-12-31 --url "https://www.glassdoor.com/Reviews/McDonald-s-Reviews-E432_P13.htm?sort.sortType=RD&sort.ascending=true"`
 
 If there's demand for it, we can automate this process to provide a simple interface for filtering by date.
+
+### Example 3
+Suppose you want to get entries from the list of companies in file `list_companies.csv`. Data for each company will be output to separate file which will be named according to the `name` column in CSV file. To do this, execute the following command:
+
+`python main.py --headless --multiple-url list_companies.csv --limit 1000`
+
