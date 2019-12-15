@@ -21,6 +21,7 @@ Ratings for each of 5 categories
 Overall rating
 '''
 
+import re
 import time
 import pandas as pd
 from argparse import ArgumentParser
@@ -44,6 +45,8 @@ parser = ArgumentParser()
 parser.add_argument('-u', '--url',
                     help='URL of the company\'s Glassdoor landing page.',
                     default=DEFAULT_URL)
+parser.add_argument('-m', '--multiple-url',
+                    help='File with multiple URLs of companies Glassdoor landing pages.')
 parser.add_argument('-f', '--file', default='glassdoor_ratings.csv',
                     help='Output file.')
 parser.add_argument('--headless', action='store_true',
@@ -187,7 +190,7 @@ def scrape(field, review, author):
             if len(p_pros) < 1:
                 return np.nan
             res = ' '.join([e.text.replace('\nShow Less', '').replace('\n', '').strip() for e in p_pros[1:]])
-        except Exception:
+        except:
             res = np.nan
         return res        
 
@@ -273,7 +276,6 @@ def extract_from_page():
     def extract_review(review):
         author = review.find_element_by_class_name('authorInfo')
         res = {}
-        # import pdb;pdb.set_trace()
         for field in SCHEMA:
             res[field] = scrape(field, review, author)
 
@@ -308,10 +310,12 @@ def extract_from_page():
 
 
 def more_pages():
-    paging_control = browser.find_element_by_class_name('pagination__PaginationStyle__pagination')
-    next_ = paging_control.find_element_by_class_name('pagination__PaginationStyle__next')
     try:
-        next_.find_element_by_tag_name('a')
+        paging_control = browser.find_element_by_class_name('pagination__PaginationStyle__pagination')
+        next_ = paging_control.find_element_by_class_name('pagination__PaginationStyle__next')        
+        a = next_.find_element_by_tag_name('a')
+        if 'pagination__ArrowStyle__disabled' in a.get_attribute('class'):
+            return False
         return True
     except selenium.common.exceptions.NoSuchElementException:
         return False
@@ -332,10 +336,10 @@ def no_reviews():
     # TODO: Find a company with no reviews to test on
 
 
-def navigate_to_reviews():
+def navigate_to_reviews(url):
     logger.info('Navigating to company reviews')
 
-    browser.get(args.url)
+    browser.get(url)
     time.sleep(1)
 
     if no_reviews():
@@ -392,10 +396,9 @@ def get_current_page():
     return current
 
 
-def verify_date_sorting():
+def verify_date_sorting(url):
     logger.info('Date limit specified, verifying date sorting')
-    ascending = urllib.parse.parse_qs(
-        args.url)['sort.ascending'] == ['true']
+    ascending = urllib.parse.parse_qs(url)['sort.ascending'] == ['true']
 
     if args.min_date and ascending:
         raise Exception(
@@ -408,50 +411,54 @@ def verify_date_sorting():
 browser = get_browser()
 page = [1]
 idx = [0]
-date_limit_reached = [False]
-
+date_limit_reached = [False]   
 
 def main():
-
     logger.info(f'Scraping up to {args.limit} reviews.')
-
-    res = pd.DataFrame([], columns=SCHEMA)
-
     sign_in()
-
-    if not args.start_from_url:
-        reviews_exist = navigate_to_reviews()
-        if not reviews_exist:
-            return
-    elif args.max_date or args.min_date:
-        verify_date_sorting()
-        browser.get(args.url)
-        page[0] = get_current_page()
-        logger.info(f'Starting from page {page[0]:,}.')
-        time.sleep(1)
-    else:
-        browser.get(args.url)
-        page[0] = get_current_page()
-        logger.info(f'Starting from page {page[0]:,}.')
-        time.sleep(1)
-
-    reviews_df = extract_from_page()
-    res = res.append(reviews_df)
-
-    # import pdb;pdb.set_trace()
-
-    while more_pages() and\
-            len(res) < args.limit and\
-            not date_limit_reached[0]:
-        go_to_next_page()
+    
+    def process_url(url, output_file):
+        global page, idx, date_limit_reached
+        page = [1]
+        idx = [0]
+        date_limit_reached = [False]      
+        res = pd.DataFrame([], columns=SCHEMA)
+        if not args.start_from_url:
+            reviews_exist = navigate_to_reviews(url)
+            if not reviews_exist:
+                return
+        elif args.max_date or args.min_date:
+            verify_date_sorting(url)
+            browser.get(url)
+            page[0] = get_current_page()
+            logger.info(f'Starting from page {page[0]:,}.')
+            time.sleep(1)
+        else:
+            browser.get(url)
+            page[0] = get_current_page()
+            logger.info(f'Starting from page {page[0]:,}.')
+            time.sleep(1)
+    
         reviews_df = extract_from_page()
         res = res.append(reviews_df)
-
-    logger.info(f'Writing {len(res)} reviews to file {args.file}')
-    res.to_csv(args.file, index=False, encoding='utf-8')
-
-    end = time.time()
-    logger.info(f'Finished in {end - start} seconds')
+        while more_pages() and len(res) < args.limit and not date_limit_reached[0]:
+            go_to_next_page()
+            reviews_df = extract_from_page()
+            res = res.append(reviews_df)
+        logger.info(f'Writing {len(res)} reviews to file {output_file}')
+        res.to_csv(output_file, index=False, encoding='utf-8')
+    
+        end = time.time()
+        logger.info(f'Finished in {end - start} seconds')
+        
+    if args.multiple_url:
+        urls = pd.read_csv(args.multiple_url)
+        if urls.shape[0] > 0:
+            for _, row in urls.iterrows():
+                logger.info(f"Processing company {row['name']}")
+                process_url(row['url'], re.sub(r'\W+','-',row['name']).lower() + ".csv")
+    else:
+        process_url(args.url, args.file)
 
 
 if __name__ == '__main__':
