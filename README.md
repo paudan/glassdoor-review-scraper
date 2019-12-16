@@ -18,9 +18,9 @@ usage: main.py [-h] [-u URL] [-f FILE] [--headless] [--username USERNAME]
                [--max_date MAX_DATE] [--min_date MIN_DATE]
 
 optional arguments:
-  -h, --help                                  show this help message and exit
+  -h, --help                                  Show this help message and exit
   -u URL, --url URL                           URL of the company's Glassdoor landing page.
-  -m FILE, --multiple-url FILE               File with multiple URLs of companies Glassdoor landing pages.
+  -m FILE, --multiple-url FILE                File with multiple URLs of companies Glassdoor landing pages.
   -f FILE, --file FILE                        Output file.
   --headless                                  Run Chrome in headless mode.
   --username USERNAME                         Email address used to sign in to GD.
